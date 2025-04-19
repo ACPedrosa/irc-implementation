@@ -1,65 +1,90 @@
-/*
-    Servidor - Socket para ouvir uma porta específica do IP
-*/
+#include "server.h"
 
-//bibliotecas
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-
-int main(){
-    int socket_fd, connection_fd; //
-    struct sockaddr_in myself, client;
-    socklen_t client_size = (socklen_t)sizeof(client);
-    char input_buffer[50];
-
-
-    //Criação de socket - IPv4, TCP. 0
-    socket_fd = socket (AF_INET, SOCK_STREAM, 0);
+int create_server_socket() {
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd < 0) {
+        perror("Erro ao criar o socket");
+        return -1;
+    }
     printf("Socket Criado\n");
+    return socket_fd;
+}
 
-    //bind - guardar dados de conexão
+void bind_socket(int socket_fd) {
+    struct sockaddr_in myself;
     myself.sin_family = AF_INET;
-    myself.sin_port = htons(3001);//porta
-    inet_aton("127.0.0.1", &(myself.sin_addr)); //converte a string
+    myself.sin_port = htons(3001);
+    inet_aton("127.0.0.1", &(myself.sin_addr));
 
     printf("Tentando abrir porta 3001\n");
-    if(bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) !=0){
-        printf("Problemas ao abrir a porta\n");
-        return 0;
+    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) != 0) {
+        perror("Problemas ao abrir a porta");
+        close(socket_fd);
+        return;
     }
     printf("Porta 3001 aberta\n");
+}
 
-    //escuta da porta - estbelecendo 2 como numero de conexões que podem ficar pendentes
-    listen(socket_fd, 2);
+void listen_for_connections(int socket_fd) {
+    if (listen(socket_fd, 2) != 0) {
+        perror("Erro ao ouvir a porta");
+        close(socket_fd);
+        return;
+    }
+    printf("Escutando conexões...\n");
+}
 
-    while(1){
+void handle_client(int connection_fd, struct sockaddr_in client) {
+    char input_buffer[50];
+
+    recv(connection_fd, input_buffer, 5, 0);
+    printf("Mensagem recebida: %s\n", input_buffer);
+
+    // Identificando cliente
+    char ip_client[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(client.sin_addr), ip_client, INET_ADDRSTRLEN);
+    printf("IP do cliente: %s\n", ip_client);
+
+    // Respondendo
+    sleep(1);
+    printf("Mensagem de retorno\n");
+    if (send(connection_fd, "PONG", 5, 0) < 0) {
+        printf("Erro: mensagem não enviada\n");
+    } else {
+        printf("Sucesso ao enviar mensagem\n");
+    }
+}
+
+void close_server_socket(int socket_fd) {
+    close(socket_fd);
+    printf("Socket fechado\n");
+}
+
+int main() {
+    int socket_fd, connection_fd;
+    struct sockaddr_in client;
+    socklen_t client_size = (socklen_t)sizeof(client);
+
+    // Criação do socket
+    socket_fd = create_server_socket();
+    if (socket_fd < 0) return 0;
+
+    // Bind
+    bind_socket(socket_fd);
+
+    // Escuta
+    listen_for_connections(socket_fd);
+
+    while (1) {
         connection_fd = accept(socket_fd, (struct sockaddr*)&client, &client_size);
-        printf("Recebi uma mensagem\n");
-        recv(connection_fd, input_buffer, 5, 0);
-        printf("%s\n", input_buffer);
-
-        /*Identificando cliente*/
-
-        char ip_client[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(client.sin_addr),ip_client, INET_ADDRSTRLEN);
-
-       // print()"IP cliente: " << ip_client;
-
-        /*Respondendo*/
-        sleep(1);
-        printf("Mensagem de retorno\n");
-        if(send(connection_fd, "PONG", 5, 0) < 0){
-            printf("Error: mensagem não enviada");
-        }else{
-            printf("Sucesso ao enviar mensagem");
+        if (connection_fd < 0) {
+            perror("Erro ao aceitar conexão");
+            continue;
         }
+        printf("Recebi uma mensagem\n");
+        handle_client(connection_fd, client);
     }
 
-    close(socket_fd);
+    close_server_socket(socket_fd);
     return 0;
 }
