@@ -26,6 +26,7 @@ int create_connection(const char *server_ip, int port) {
     return socket_fd;
 }
 
+
 void communicate_with_server(int socket_fd) {
     // Envia mensagem "PING" para o servidor
     send(socket_fd, "PING", 5, 0);
@@ -36,3 +37,5 @@ void communicate_with_server(int socket_fd) {
     recv(socket_fd, reply, 10, 0);
     printf("Recebi resposta do servidor: %s\n", reply);
 }
+
+
