@@ -1,6 +1,7 @@
 #include "server.h"
 
 int create_server_socket() {
+    //Criação de socket - IPv4, TCP. 0
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd < 0) {
         perror("Erro ao criar o socket");
