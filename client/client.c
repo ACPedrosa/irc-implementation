@@ -26,16 +26,27 @@ int create_connection(const char *server_ip, int port) {
     return socket_fd;
 }
 
-
 void communicate_with_server(int socket_fd) {
-    // Envia mensagem "PING" para o servidor
-    send(socket_fd, "PING", 5, 0);
-    printf("Enviei uma mensagem de PING\n");
+    ssize_t bytes_sent;
+    char message[512]; //512 é o padrão do IRC
 
-    // Recebe a resposta do servidor
-    char reply[10];
-    recv(socket_fd, reply, 10, 0);
-    printf("Recebi resposta do servidor: %s\n", reply);
+    printf("MSG: "); //depois modificar para o username do user
+    if (fgets(message, sizeof(message), stdin) != NULL) {
+        size_t len = strlen(message);
+        if (len > 0 && message[len - 1] == '\n') {
+            message[len - 1] = '\0';
+        }
+
+        bytes_sent = send(socket_fd, message, strlen(message), 0);
+        if (bytes_sent < 0) {
+            perror("Erro ao enviar mensagem");
+            close(socket_fd);
+        } 
+    } else {
+        printf("Erro ao ler a entrada do usuário.\n"); //depois fazer um tratamento melhor, isso deria para o server
+        close(socket_fd);
+    }
 }
+
 
 

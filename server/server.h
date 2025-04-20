@@ -3,10 +3,13 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#define BUFFER_SIZE 512
 
 int create_server_socket();
 void bind_socket(int socket_fd);

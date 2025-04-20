@@ -17,7 +17,7 @@ int main() {
 
     while (1) {
         connection_fd = accept(socket_fd, (struct sockaddr*)&client, &client_size);
-        if (connection_fd < 0) {7
+        if (connection_fd < 0) {
             perror("Erro ao aceitar conexão");
             continue;
         }
