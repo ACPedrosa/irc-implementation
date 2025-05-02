@@ -2,10 +2,10 @@
     <NOME> (ok)
     <ACK> ---> aceita o nome do usuário (ok)
     <NACK> ---> não aceita o nome (ok)
-    timeout ---> habilitar para desconectar o usuario após 60s de inatividade
+    timeout ---> habilitar para desconectar o usuario após 60s de inatividade (ok)
     <NOVO>	notificação de novo cliente conectado 
-    <SAIR>	finaliza conexão cliente-servidor
-    <SAIU>	notificação de cliente finalizado
+    <SAIR>	finaliza conexão cliente-servidor (ok)
+    <SAIU>	notificação de cliente finalizado (ok)
 
     <DESTINO>		whisper
 */
