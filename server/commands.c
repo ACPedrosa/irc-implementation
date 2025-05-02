@@ -70,7 +70,7 @@ char* validar_nome(UserDictionary *dict, const char *nome, const char *ip){
 /*
     Comando <ALL> --> recebe uma mensagem e repassa para outros usuários/clientes
 */
-void broadcast_message(int connection_fd, int *clients, int max_clients, char *message, ssize_t message_size) {
+void enviar_message(int connection_fd, int *clients, int max_clients, char *message, ssize_t message_size) {
     for (int i = 0; i < max_clients; i++) {
         if (clients[i] != 0 && clients[i] != connection_fd) { 
             ssize_t bytes_sent = send(clients[i], message, message_size, 0);
@@ -89,6 +89,31 @@ void broadcast_message(int connection_fd, int *clients, int max_clients, char *m
     <SAIU>	notificação de cliente finalizado -nome do cliente
 */
 
-void desconect_client(){
+void desconectar_cliente(Cliente *cliente) {
+    char mensagem[100];
+    snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
+    enviar_mensagem(mensagem);
     
+    // Fechar a conexão do cliente
+    close(cliente->socket);
+    printf("Conexão com cliente %s fechada.\n", cliente->nome);
+}
+
+// Função para verificar timeout de inatividade
+void verificar_inatividade(Cliente *cliente) {
+    time_t tempo_atual = time(NULL);
+    
+    if (difftime(tempo_atual, cliente->ultimo_uso) > INATIVIDADE_TIMEOUT) {
+        printf("Cliente %s inativo por %d segundos. Desconectando...\n", cliente->nome, INATIVIDADE_TIMEOUT);
+        desconectar_cliente(cliente);
+    }
+}
+
+void desconect_client(Cliente *cliente, const char *comando) {
+    if (comando != NULL && strcmp(comando, "<SAIR>") == 0) {
+        printf("Comando <SAIR> recebido. Desconectando cliente %s...\n", cliente->nome);
+        desconectar_cliente(cliente);
+    } else {
+        verificar_inatividade(cliente);
+    }
 }
