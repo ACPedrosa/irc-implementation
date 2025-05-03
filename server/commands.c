@@ -54,18 +54,19 @@ char* get_mensagem(const char* mensagem) {
 */
 //fazer uma função getNome
 
-char* validar_nome(UserDictionary *dict, const char *nome, const char *ip){
+char* validar_nome(UserDictionary *dict, const char *nome, const char *ip) {
     for (int i = 0; i < dict->size; i++) {
-        if (strcmp(dict->users[i].name, name) == 0 || strcmp(dict->users[i].ip, ip) == 0) {
-            return 0; // NACK
+        if (strcmp(dict->users[i].name, nome) == 0 || strcmp(dict->users[i].ip, ip) == 0) {
+            return "NACK"; // nome ou IP já existe
         }
     }
 
-    strcpy(dict->users[dict->size].name, name);
+    strcpy(dict->users[dict->size].name, nome);
     strcpy(dict->users[dict->size].ip, ip);
     dict->size++;
-    return 1; //ACK
+    return "ACK"; // nome aceito
 }
+
 
 /*
     Comando <ALL> --> recebe uma mensagem e repassa para outros usuários/clientes
@@ -109,7 +110,7 @@ void verificar_inatividade(Cliente *cliente) {
     }
 }
 
-void desconect_client(Cliente *cliente, const char *comando) {
+void client_aut(Cliente *cliente, const char *comando) {
     if (comando != NULL && strcmp(comando, "<SAIR>") == 0) {
         printf("Comando <SAIR> recebido. Desconectando cliente %s...\n", cliente->nome);
         desconectar_cliente(cliente);
