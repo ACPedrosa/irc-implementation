@@ -7,7 +7,6 @@
     <SAIR>	finaliza conexão cliente-servidor (ok)
     <SAIU>	notificação de cliente finalizado (ok)
 
-    <DESTINO>		whisper
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,16 +53,19 @@ char* get_mensagem(const char* mensagem) {
 */
 //fazer uma função getNome
 
-char* validar_nome(UserDictionary *dict, const char *nome, const char *ip) {
-    for (int i = 0; i < dict->size; i++) {
-        if (strcmp(dict->users[i].name, nome) == 0 || strcmp(dict->users[i].ip, ip) == 0) {
+char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip) {
+    for (int i = 0; i < total_clientes; i++) {
+        if (strcmp(clientes_conectados[i].nome, nome) == 0 || strcmp(clientes_conectados[i].ip, ip) == 0) {
             return "NACK"; // nome ou IP já existe
         }
     }
 
-    strcpy(dict->users[dict->size].name, nome);
-    strcpy(dict->users[dict->size].ip, ip);
-    dict->size++;
+    // Adicionando o cliente à lista
+    strcpy(clientes_conectados[total_clientes].nome, nome);
+    strcpy(clientes_conectados[total_clientes].ip, ip);
+    clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registrar o último uso
+    clientes_conectados[total_clientes].socket = -1; // Defina o socket posteriormente
+    total_clientes++; // Incrementa o contador
     return "ACK"; // nome aceito
 }
 
