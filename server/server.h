@@ -51,6 +51,7 @@ char* get_mensagem(const char* mensagem);
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip);
 void desconectar_cliente(Cliente *cliente);
 void verificar_inatividade(Cliente *cliente);
+void* monitorar_inatividade(void* arg);
 
 
 #endif

@@ -15,7 +15,7 @@ void bind_socket(int socket_fd) {
     struct sockaddr_in myself;
     myself.sin_family = AF_INET;
     myself.sin_port = htons(3001);
-    myself.sin_addr.myself = INADDR_ANY; //aceita qualquer IP
+    myself.sin_addr.s_addr = INADDR_ANY; //aceita qualquer IP
     //inet_aton("127.0.0.1", &(myself.sin_addr));
 
     printf("Tentando abrir porta 3001\n");
@@ -148,15 +148,16 @@ char* get_mensagem(const char* mensagem) {
 void desconectar_cliente(Cliente *cliente) {
     char mensagem[100];
     snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
-    enviar_message(cliente->socket, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+    enviar_message(cliente->connection_data.connection_fd
+        , clientes_conectados, total_clientes, mensagem, strlen(mensagem));
     
     // Fechar a conexão do cliente
-    close(cliente->socket);
+    close(cliente->connection_data.connection_fd);
     printf("Conexão com cliente %s fechada.\n", cliente->nome);
     
     // Remover o cliente da lista de clientes conectados
     for (int i = 0; i < total_clientes; i++) {
-        if (clientes_conectados[i].socket == cliente->socket) {
+        if (clientes_conectados[i].socket == cliente->connection_data.connection_fd) {
             // Movendo todos os outros clientes para "fechar" a posição do cliente desconectado
             for (int j = i; j < total_clientes - 1; j++) {
                 clientes_conectados[j] = clientes_conectados[j + 1];
@@ -180,7 +181,12 @@ void verificar_inatividade() {
     }
 }
 
-
+void* monitorar_inatividade(void* arg) {
+    while (1) {
+        sleep(5);
+        verificar_inatividade();
+    }
+}
 
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip) {
     for (int i = 0; i < total_clientes; i++) {
@@ -193,7 +199,19 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     strcpy(clientes_conectados[total_clientes].nome, nome);
     strcpy(clientes_conectados[total_clientes].ip, ip);
     clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registrar o último uso
-    clientes_conectados[total_clientes].socket = -1; // Defina o socket posteriormente
+    clientes_conectados[total_clientes].cliente->connection_data.connection_fd = -1; // Defina o socket posteriormente
     total_clientes++; // Incrementa o contador
     return "ACK"; // nome aceito
+}
+
+void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
+    for (int i = 0; i < max_clients; i++) {
+        int client_fd = clientes[i].connection_data.connection_fd;
+        if (client_fd != 0 && client_fd != connection_fd) { 
+            ssize_t bytes_sent = send(client_fd, message, message_size, 0);
+            if (bytes_sent < 0) {
+                perror("Erro ao enviar mensagem para o cliente");
+            }
+        }
+    }
 }
