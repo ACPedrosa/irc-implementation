@@ -93,7 +93,23 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
     close(connection_fd); // Fecha a conexão com o cliente
 }
 
-void close_server_socket(int socket_fd) {
-    close(socket_fd);
-    printf("Socket fechado\n");
+void desconectar_cliente(Cliente *cliente) {
+    char mensagem[100];
+    snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
+    enviar_mensagem(mensagem);
+    
+    // Fechar a conexão do cliente
+    close(cliente->socket);
+    printf("Conexão com cliente %s fechada.\n", cliente->nome);
 }
+
+// Função para verificar timeout de inatividade
+void verificar_inatividade(Cliente *cliente) {
+    time_t tempo_atual = time(NULL);
+    
+    if (difftime(tempo_atual, cliente->ultimo_uso) > INATIVIDADE_TIMEOUT) {
+        printf("Cliente %s inativo por %d segundos. Desconectando...\n", cliente->nome, INATIVIDADE_TIMEOUT);
+        desconectar_cliente(cliente);
+    }
+}
+
