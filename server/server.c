@@ -1,5 +1,8 @@
 #include "server.h"
 
+Cliente clientes_conectados[MAX_CLIENTES];
+int total_clientes = 0;
+
 int create_server_socket() {
     //Criação de socket - IPv4, TCP. 0
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -36,28 +39,6 @@ void listen_for_connections(int socket_fd) {
     printf("Escutando conexões...\n");
 }
 
-/*void handle_client(int connection_fd, struct sockaddr_in client) {
-    char input_buffer[50];
-
-    recv(connection_fd, input_buffer, 5, 0);
-    printf("Mensagem recebida: %s\n", input_buffer);
-
-    // Identificando cliente
-    char ip_client[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(client.sin_addr), ip_client, INET_ADDRSTRLEN);
-    printf("IP do cliente: %s\n", ip_client);
-
-    // Respondendo
-    sleep(1);
-    printf("Mensagem de retorno\n");
-    if (send(connection_fd, "PONG", 5, 0) < 0) {
-        printf("Erro: mensagem não enviada\n");
-    } else {
-        printf("Sucesso ao enviar mensagem\n");
-    }
-}*/
-
-
 void handle_client(int connection_fd, struct sockaddr_in client) {
     char input_buffer[BUFFER_SIZE];
     ssize_t bytes_received;
@@ -85,7 +66,7 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
         else if (strcmp(comando, "SAIR") == 0) {
             Cliente cliente;
             strcpy(cliente.nome, mensagem); // ou identifique pelo fd
-            cliente.socket = connection_fd;
+            cliente.connection_data.connection_fd = connection_fd;
             desconectar_cliente(&cliente);
             break;
         } 
@@ -157,7 +138,7 @@ void desconectar_cliente(Cliente *cliente) {
     
     // Remover o cliente da lista de clientes conectados
     for (int i = 0; i < total_clientes; i++) {
-        if (clientes_conectados[i].socket == cliente->connection_data.connection_fd) {
+        if (clientes_conectados[i].connection_data.connection_fd == cliente->connection_data.connection_fd){
             // Movendo todos os outros clientes para "fechar" a posição do cliente desconectado
             for (int j = i; j < total_clientes - 1; j++) {
                 clientes_conectados[j] = clientes_conectados[j + 1];
@@ -199,7 +180,7 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     strcpy(clientes_conectados[total_clientes].nome, nome);
     strcpy(clientes_conectados[total_clientes].ip, ip);
     clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registrar o último uso
-    clientes_conectados[total_clientes].cliente->connection_data.connection_fd = -1; // Defina o socket posteriormente
+    clientes_conectados[total_clientes].connection_data.connection_fd = -1;
     total_clientes++; // Incrementa o contador
     return "ACK"; // nome aceito
 }
