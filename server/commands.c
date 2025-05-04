@@ -112,11 +112,4 @@ void verificar_inatividade(Cliente *cliente) {
     }
 }
 
-void client_aut(Cliente *cliente, const char *comando) {
-    if (comando != NULL && strcmp(comando, "<SAIR>") == 0) {
-        printf("Comando <SAIR> recebido. Desconectando cliente %s...\n", cliente->nome);
-        desconectar_cliente(cliente);
-    } else {
-        verificar_inatividade(cliente);
-    }
-}
+
