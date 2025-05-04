@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -39,12 +40,13 @@ int create_server_socket();
 void bind_socket(int socket_fd);
 void listen_for_connections(int socket_fd);
 void handle_client(int connection_fd, struct sockaddr_in client);
-//void close_server_socket(int socket_fd);
+void close_server_socket(int socket_fd);
 void* handle_client_thread(void* arg);
 
 //processamento de texto
 char* get_comando(const char* mensagem);
 char* get_mensagem(const char* mensagem);
+void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size);
 
 
 // Gerenciamento de cliente
@@ -52,7 +54,7 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
 
 //para desconexão com o client
 void desconectar_cliente(Cliente *cliente);
-void verificar_inatividade(Cliente *cliente);
+void verificar_inatividade();
 void* monitorar_inatividade(void* arg);
 
 #endif
