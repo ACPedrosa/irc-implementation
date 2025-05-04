@@ -22,13 +22,48 @@ int create_connection(const char *server_ip, int port) {
         return -1;
     }
     printf("Conectado ao servidor\n");
-    
+
+    printf("<NOME>");
+
+    char nome[50];
+    fgets(nome, sizeof(nome), stdin);
+    nome[strcspn(nome, "\n")] = '\0';
+
+    char nome_msg[64];
+    snprintf(nome_msg, sizeof(nome_msg), "<NOME> %s", nome);
+    send(socket_fd, nome_msg, strlen(nome_msg), 0);
+
+    // aguardar ACK/NACK
+    char buffer[512];
+    ssize_t bytes_received = recv(socket_fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_received > 0) {
+        buffer[bytes_received] = '\0';
+        if (strcmp(buffer, "NACK") == 0) {
+            printf("Nome já utilizado ou IP duplicado. Encerrando conexão.\n");
+            close(socket_fd);
+            exit(1);
+        } else {
+            printf("Nome aceito.\n");
+        }
+    }
+   
     return socket_fd;
 }
 
 void communicate_with_server(int socket_fd) {
     ssize_t bytes_sent;
     char message[512]; 
+
+    // Envia uma mensagem automática com <ALL>
+    char mensagem_all[512];
+    snprintf(mensagem_all, sizeof(mensagem_all), "<ALL>");
+    bytes_sent = send(socket_fd, mensagem_all, strlen(mensagem_all), 0);
+    if (bytes_sent < 0) {
+        perror("Erro ao enviar mensagem");
+        close(socket_fd);
+        return;
+    }
+    printf("Mensagem automática com <ALL> enviada.\n");
 
     while (1) {
         printf("Digite a mensagem (ou <SAIR> para encerrar): ");
@@ -44,6 +79,7 @@ void communicate_with_server(int socket_fd) {
                 break;
             }
 
+            // Envia a mensagem digitada pelo usuário
             bytes_sent = send(socket_fd, message, strlen(message), 0);
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem");
@@ -51,7 +87,7 @@ void communicate_with_server(int socket_fd) {
                 break;
             }
 
-            // incluir o tratamento do ACK e do NACk
+            // Recebe a resposta do servidor
             char buffer[512];
             ssize_t bytes_received = recv(socket_fd, buffer, sizeof(buffer) - 1, 0);
             if (bytes_received < 0) {
@@ -72,6 +108,7 @@ void communicate_with_server(int socket_fd) {
 
     close(socket_fd);
 }
+
 
 
 
