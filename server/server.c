@@ -60,7 +60,7 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
         }
 
         if (strcmp(comando, "NOME") == 0) {
-            char *resposta = validar_nome(clientes_conectados, mensagem, ip_client);
+            char *resposta = validar_nome(clientes_conectados, mensagem, ip_client, connection_fd);
             send(connection_fd, resposta, strlen(resposta), 0);
         } 
         else if (strcmp(comando, "SAIR") == 0) {
@@ -154,7 +154,7 @@ void desconectar_cliente(Cliente *cliente) {
 void verificar_inatividade() {
     time_t tempo_atual = time(NULL);
     
-    for (int i = 0; i < total_clientes; i++) {
+    for (int i = total_clientes -1; i >= 0; i--) {
         if (difftime(tempo_atual, clientes_conectados[i].ultimo_uso) > INATIVIDADE_TIMEOUT) {
             printf("Cliente %s inativo por mais de %d segundos. Desconectando...\n", clientes_conectados[i].nome, INATIVIDADE_TIMEOUT);
             desconectar_cliente(&clientes_conectados[i]);
@@ -169,21 +169,23 @@ void* monitorar_inatividade(void* arg) {
     }
 }
 
-char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip) {
+char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd) {
+    // Verifica se já existe um cliente com o mesmo nome ou IP
     for (int i = 0; i < total_clientes; i++) {
         if (strcmp(clientes_conectados[i].nome, nome) == 0 || strcmp(clientes_conectados[i].ip, ip) == 0) {
-            return "NACK"; // nome ou IP já existe
+            return "NACK"; // Nome ou IP já existe
         }
     }
 
-    // Adicionando o cliente à lista
-    strcpy(clientes_conectados[total_clientes].nome, nome);
-    strcpy(clientes_conectados[total_clientes].ip, ip);
-    clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registrar o último uso
-    clientes_conectados[total_clientes].connection_data.connection_fd = -1;
+    // Adiciona o cliente à lista de clientes conectados
+    strncpy(clientes_conectados[total_clientes].nome, nome, sizeof(clientes_conectados[total_clientes].nome));
+    strncpy(clientes_conectados[total_clientes].ip, ip, INET_ADDRSTRLEN);
+    clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registra o último uso
+    clientes_conectados[total_clientes].connection_data.connection_fd = connection_fd; // Registra a conexão
     total_clientes++; // Incrementa o contador
-    return "ACK"; // nome aceito
+    return "ACK"; // Nome aceito
 }
+
 
 void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
     for (int i = 0; i < max_clients; i++) {
