@@ -50,7 +50,7 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
 
 
 // Gerenciamento de cliente
-char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip);
+char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd);
 
 //para desconexão com o client
 void desconectar_cliente(Cliente *cliente);
