@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define BUFFER_SIZE 512
 #define MAX_CLIENTES 10
@@ -42,16 +43,19 @@ extern int total_clientes;
 int create_server_socket();
 
 //Associa o socket do servidor a um endereço IP e porta
-void bind_socket(int socket_fd);
+int bind_socket(int socket_fd);
 
 //Modo escuta do socket do servidor para aguardar conexão do cliente
-void listen_for_connections(int socket_fd);
+int listen_for_connections(int socket_fd);
 
 //Aceita e trata uma nova conexão do cliente
 void handle_client(int connection_fd, struct sockaddr_in client);
 
 //fecha o socket do servidor
 void close_server_socket(int socket_fd);
+
+//hamadas para desconectar os clientes antes de encerrar o servidor
+void encerrar_servidor(int sinal);
 
 //Execura thread para lidar com as comunicações com o cliente
 void* handle_client_thread(void* arg);
