@@ -293,6 +293,11 @@ void* monitorar_inatividade(void* arg) {
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd) {
     pthread_mutex_lock(&mutex_clientes);
 
+    if (total_clientes >= MAX_CLIENTES) {
+        pthread_mutex_unlock(&mutex_clientes);
+        return "NACK"; // Servidor cheio
+    }
+
     for (int i = 0; i < total_clientes; i++) {
         if (strcmp(clientes_conectados[i].nome, nome) == 0) {
             pthread_mutex_unlock(&mutex_clientes);
@@ -309,7 +314,7 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     pthread_mutex_unlock(&mutex_clientes);
 
     char mensagem_boas_vindas[200];
-    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "Cliente %s conectado", nome);
+    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
     enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
     return "ACK";
 }
