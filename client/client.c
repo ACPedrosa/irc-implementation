@@ -1,5 +1,30 @@
 #include "client.h"
 
+#define BUFFER_SIZE 512
+
+int socket_fd; // Variável global para o socket
+
+void *receive_messages(void *arg) {
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_received;
+
+    while (1) {
+        bytes_received = recv(socket_fd, buffer, BUFFER_SIZE - 1, 0);
+        if (bytes_received > 0) {
+            buffer[bytes_received] = '\0';
+            printf("Mensagem do servidor: %s\n", buffer);
+            // TODO: Processar a mensagem (atualizar a interface, etc.)
+        } else if (bytes_received == 0) {
+            printf("Servidor desconectado.\n");
+            break;
+        } else {
+            perror("Erro ao receber mensagem");
+            break;
+        }
+    }
+    return NULL;
+}
+
 int create_connection(const char *server_ip, int port) {
     int socket_fd;
     struct sockaddr_in target;
@@ -51,48 +76,33 @@ int create_connection(const char *server_ip, int port) {
 }
 
 void communicate_with_server(int socket_fd) {
-
     ssize_t bytes_sent;
-    char message[512]; 
+    char message[512];
 
     while (1) {
         if (fgets(message, sizeof(message), stdin) != NULL) {
             size_t len = strlen(message);
             if (len > 0 && message[len - 1] == '\n') {
-                message[len - 1] = '\0';  
+                message[len - 1] = '\0';
             }
 
             if (strcmp(message, "<SAIR>") == 0) {
                 printf("Desconectando...\n");
                 break;
-            }            
+            }
 
             bytes_sent = send(socket_fd, message, strlen(message), 0);
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem");
                 close(socket_fd);
-                break;
+                exit(1); 
             }
-
-            char buffer[512];
-            ssize_t bytes_received = recv(socket_fd, buffer, sizeof(buffer) - 1, 0);
-            if (bytes_received < 0) {
-                perror("Erro ao receber dados do servidor");
-                close(socket_fd);
-                break;
-            }
-
-            buffer[bytes_received] = '\0';
-            printf("Servidor respondeu: %s\n", buffer);
-
         } else {
             printf("Erro ao ler a entrada do usuário.\n");
             close(socket_fd);
-            break;
+            exit(1); 
         }
     }
-
-    close(socket_fd);
 }
 
 
