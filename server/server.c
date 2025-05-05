@@ -73,8 +73,52 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
         else if (strcmp(comando, "ALL") == 0) {
             enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
         } 
+        else if (strcmp(comando, "WHO") == 0) {
+            char resposta[BUFFER_SIZE];
+            snprintf(resposta, sizeof(resposta), "Clientes conectados (%d):\n", total_clientes);
+        
+            for (int i = 0; i < total_clientes; i++) {
+                strncat(resposta, "- ", sizeof(resposta) - strlen(resposta) - 1);
+                strncat(resposta, clientes_conectados[i].nome, sizeof(resposta) - strlen(resposta) - 1);
+                strncat(resposta, "\n", sizeof(resposta) - strlen(resposta) - 1);
+            }
+        
+            send(connection_fd, resposta, strlen(resposta), 0);
+        }
+        else if (strcmp(comando, "<HELP>") == 0) {
+            const char* ajuda =
+                "Comandos disponíveis:\n"
+                "<ALL>             - Enviar mensagem a todos\n "
+                "<SAIR>            - Sair do chat\n"
+                "<WHO>             - Ver usuários conectados\n"
+                "<HELP>            - Mostrar esta ajuda\n"
+                "<nome> <mensagem> - Enviar mensagem privada (whisper)\n";
+        
+            send(connection_fd, ajuda, strlen(ajuda), 0);
+        }        
         else {
-            printf("Comando desconhecido: %s\n", comando);
+            // Verifica se o comando é o nome de um cliente (whisper)
+            int encontrado = 0;
+            for (int i = 0; i < total_clientes; i++) {
+                if (strcmp(clientes_conectados[i].nome, comando) == 0) {
+                    // Nome encontrado: enviar whisper
+                    const char* nome_remetente = get_nome_por_fd(connection_fd);
+                    char msg_formatada[BUFFER_SIZE];
+                    snprintf(msg_formatada, sizeof(msg_formatada), "[Whisper de %s]: %s", 
+                             nome_remetente, mensagem);
+        
+                    send(clientes_conectados[i].connection_data.connection_fd, msg_formatada, strlen(msg_formatada), 0);
+                    encontrado = 1;
+                    break;
+                }
+            }
+        
+            if (!encontrado) {
+                // Nenhum comando conhecido nem nome de cliente válido
+                char resposta[BUFFER_SIZE];
+                snprintf(resposta, sizeof(resposta), "Comando '%s' não reconhecido. Digite <HELP> para ajuda.\n", comando);
+                send(connection_fd, resposta, strlen(resposta), 0);
+            }
         }
 
         free(comando);
@@ -93,6 +137,49 @@ void* handle_client_thread(void* arg) {
     free(data);  // Libera a memória alocada para os dados do cliente
     return NULL;
 }
+
+// Função para aceitar conexões
+void* thread_aceita_conexoes(void* arg) {
+    int socket_fd = *(int*)arg;
+    struct sockaddr_in client;
+    socklen_t client_size = sizeof(client);
+    int connection_fd;
+
+    while (1) {
+        // Aceita a conexão
+        connection_fd = accept(socket_fd, (struct sockaddr*)&client, &client_size);
+        if (connection_fd < 0) {
+            perror("Erro ao aceitar conexão");
+            continue;
+        }
+
+        // Aloca memória para armazenar os dados do cliente
+        ClientData* client_data = (ClientData*)malloc(sizeof(ClientData));
+        if (client_data == NULL) {
+            perror("Erro ao alocar memória para cliente");
+            close(connection_fd);
+            continue;
+        }
+
+        // Preenche os dados do cliente
+        client_data->connection_fd = connection_fd;
+        client_data->client = client;
+
+        // Cria uma thread para tratar o cliente
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, handle_client_thread, (void*)client_data) != 0) {
+            perror("Erro ao criar thread para cliente");
+            free(client_data);  // Libera a memória caso a thread não seja criada
+            close(connection_fd);
+        } else {
+            // Detach a thread para que ela seja limpa automaticamente após terminar
+            pthread_detach(thread_id);
+        }
+    }
+
+    return NULL;
+}
+
 
 char* get_comando(const char* mensagem) {
     if (!mensagem || mensagem[0] != '<') return NULL;
@@ -125,20 +212,32 @@ char* get_mensagem(const char* mensagem) {
     return strdup(inicioMsg);
 }
 
+const char* get_nome_por_fd(int connection_fd) {
+    for (int i = 0; i < total_clientes; i++) {
+        if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
+            return clientes_conectados[i].nome;
+        }
+    }
+    return "Desconhecido";
+}
+
+
 
 void desconectar_cliente(Cliente *cliente) {
+    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+
     char mensagem[100];
     snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
     enviar_message(cliente->connection_data.connection_fd
         , clientes_conectados, total_clientes, mensagem, strlen(mensagem));
-    
+
     // Fechar a conexão do cliente
     close(cliente->connection_data.connection_fd);
     printf("Conexão com cliente %s fechada.\n", cliente->nome);
-    
+
     // Remover o cliente da lista de clientes conectados
     for (int i = 0; i < total_clientes; i++) {
-        if (clientes_conectados[i].connection_data.connection_fd == cliente->connection_data.connection_fd){
+        if (clientes_conectados[i].connection_data.connection_fd == cliente->connection_data.connection_fd) {
             // Movendo todos os outros clientes para "fechar" a posição do cliente desconectado
             for (int j = i; j < total_clientes - 1; j++) {
                 clientes_conectados[j] = clientes_conectados[j + 1];
@@ -147,7 +246,10 @@ void desconectar_cliente(Cliente *cliente) {
             break;
         }
     }
+
+    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
 }
+
 
 
 // Função para verificar timeout de inatividade
@@ -170,10 +272,13 @@ void* monitorar_inatividade(void* arg) {
 }
 
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd) {
+    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+
     // Verifica se já existe um cliente com o mesmo nome ou IP
     for (int i = 0; i < total_clientes; i++) {
-        if (strcmp(clientes_conectados[i].nome, nome) == 0 || strcmp(clientes_conectados[i].ip, ip) == 0) {
-            return "NACK"; // Nome ou IP já existe
+        if (strcmp(clientes_conectados[i].nome, nome) == 0) { //|| strcmp(clientes_conectados[i].ip, ip) == 0
+            pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex antes de retornar
+            return "NACK"; 
         }
     }
 
@@ -183,18 +288,27 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registra o último uso
     clientes_conectados[total_clientes].connection_data.connection_fd = connection_fd; // Registra a conexão
     total_clientes++; // Incrementa o contador
+
+    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
+
     return "ACK"; // Nome aceito
 }
 
 
+
 void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
+    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+
     for (int i = 0; i < max_clients; i++) {
         int client_fd = clientes[i].connection_data.connection_fd;
-        if (client_fd != 0 && client_fd != connection_fd) { 
+        if (client_fd != 0 && client_fd != connection_fd) {
             ssize_t bytes_sent = send(client_fd, message, message_size, 0);
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem para o cliente");
             }
         }
     }
+
+    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
 }
+
