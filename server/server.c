@@ -51,18 +51,18 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
     char ip_client[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(client.sin_addr), ip_client, INET_ADDRSTRLEN);
     printf("Novo cliente conectado: %s (%d)\n", ip_client, connection_fd);
-
+   
     for (int i = 0; i < total_clientes; i++) {
         if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
             clientes_conectados[i].ultimo_uso = time(NULL);
             break;
         }
     }
-
+   
     while (servidor_ativo && (bytes_received = recv(connection_fd, input_buffer, BUFFER_SIZE - 1, 0)) > 0) {
         input_buffer[bytes_received] = '\0';
         printf("Servidor recebeu do cliente %s (%d): %s\n", ip_client, connection_fd, input_buffer);
-
+   
         for (int i = 0; i < total_clientes; i++) {
             if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
                 clientes_conectados[i].ultimo_uso = time(NULL);
@@ -74,7 +74,7 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
     }
     close(connection_fd);
     printf("Conexão com cliente %s (%d) fechada.\n", ip_client, connection_fd);
-}
+   }
 
 void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client) {
     char* comando = get_comando(mensagem);
@@ -248,9 +248,12 @@ const char* get_nome_por_fd(int connection_fd) {
 void desconectar_cliente(Cliente *cliente) {
     pthread_mutex_lock(&mutex_clientes);
 
-    char mensagem[100];
-    snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
-    enviar_message(cliente->connection_data.connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+    // Envia mensagem de saída para os outros clientes, se houverem outros clientes conectados.
+    if (total_clientes > 0) {
+        char mensagem[100];
+        snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectou", cliente->nome);
+        enviar_message(cliente->connection_data.connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+    }
 
     close(cliente->connection_data.connection_fd);
     printf("Conexão com cliente %s fechada.\n", cliente->nome);
@@ -267,6 +270,7 @@ void desconectar_cliente(Cliente *cliente) {
 
     pthread_mutex_unlock(&mutex_clientes);
 }
+
 
 void verificar_inatividade() {
     time_t tempo_atual = time(NULL);
