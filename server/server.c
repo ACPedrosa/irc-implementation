@@ -94,7 +94,7 @@ void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client
         handle_all(connection_fd, mensagem_texto);
     } else if (strcmp(comando, "WHO") == 0) {
         handle_who(connection_fd);
-    } else if (strcmp(comando, "<HELP>") == 0) {
+    } else if (strcmp(comando, "HELP") == 0) {
         handle_help(connection_fd);
     } else {
         handle_whisper(connection_fd, comando, mensagem_texto);
