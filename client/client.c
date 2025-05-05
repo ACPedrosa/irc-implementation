@@ -23,7 +23,7 @@ int create_connection(const char *server_ip, int port) {
     }
     printf("Conectado ao servidor\n");
 
-    printf("<NOME>");
+    printf("Para começar a conversar, por favor insira seu nome\n<NOME> ");
 
     char nome[50];
     fgets(nome, sizeof(nome), stdin);
@@ -39,11 +39,11 @@ int create_connection(const char *server_ip, int port) {
     if (bytes_received > 0) {
         buffer[bytes_received] = '\0';
         if (strcmp(buffer, "NACK") == 0) {
-            printf("Nome já utilizado ou IP duplicado. Encerrando conexão.\n");
-            close(socket_fd);
+            printf("NACK\n");
+            //close(socket_fd);
             exit(1);
         } else {
-            printf("Nome aceito.\n");
+            printf("ACK\n");
         }
     }
    
@@ -51,35 +51,22 @@ int create_connection(const char *server_ip, int port) {
 }
 
 void communicate_with_server(int socket_fd) {
+
     ssize_t bytes_sent;
     char message[512]; 
 
-    // Envia uma mensagem automática com <ALL>
-    char mensagem_all[512];
-    snprintf(mensagem_all, sizeof(mensagem_all), "<ALL>");
-    bytes_sent = send(socket_fd, mensagem_all, strlen(mensagem_all), 0);
-    if (bytes_sent < 0) {
-        perror("Erro ao enviar mensagem");
-        close(socket_fd);
-        return;
-    }
-    printf("Mensagem automática com <ALL> enviada.\n");
-
     while (1) {
-        printf("Digite a mensagem (ou <SAIR> para encerrar): ");
         if (fgets(message, sizeof(message), stdin) != NULL) {
             size_t len = strlen(message);
             if (len > 0 && message[len - 1] == '\n') {
                 message[len - 1] = '\0';  
             }
 
-            // Se o usuário digitar "<SAIR>", encerra a conexão
             if (strcmp(message, "<SAIR>") == 0) {
                 printf("Desconectando...\n");
                 break;
-            }
+            }            
 
-            // Envia a mensagem digitada pelo usuário
             bytes_sent = send(socket_fd, message, strlen(message), 0);
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem");
@@ -87,7 +74,6 @@ void communicate_with_server(int socket_fd) {
                 break;
             }
 
-            // Recebe a resposta do servidor
             char buffer[512];
             ssize_t bytes_received = recv(socket_fd, buffer, sizeof(buffer) - 1, 0);
             if (bytes_received < 0) {
@@ -108,7 +94,6 @@ void communicate_with_server(int socket_fd) {
 
     close(socket_fd);
 }
-
 
 
 
