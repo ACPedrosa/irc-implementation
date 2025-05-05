@@ -309,7 +309,7 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     pthread_mutex_unlock(&mutex_clientes);
 
     char mensagem_boas_vindas[200];
-    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
+    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "Cliente %s conectado", nome);
     enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
     return "ACK";
 }
