@@ -1,11 +1,15 @@
 #include "server.h"
 
+
 pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER;
 Cliente clientes_conectados[MAX_CLIENTES];
 int total_clientes = 0;
+int socket_fd = -1; // Definição das variáveis globais
+pthread_t thread_conexao = 0;
+pthread_t thread_inatividade = 0;
+volatile sig_atomic_t servidor_ativo = 1;
 
 int create_server_socket() {
-    //Criação de socket - IPv4, TCP. 0
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd < 0) {
         perror("Erro ao criar o socket");
@@ -19,26 +23,26 @@ int bind_socket(int socket_fd) {
     struct sockaddr_in myself;
     myself.sin_family = AF_INET;
     myself.sin_port = htons(3001);
-    myself.sin_addr.s_addr = INADDR_ANY; //aceita qualquer IP
+    myself.sin_addr.s_addr = INADDR_ANY;
 
     printf("Tentando abrir porta 3001\n");
-    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) == -1) {
+    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) != 0) {
         perror("Problemas ao abrir a porta");
         close(socket_fd);
-        return -1; // Retorna -1 em caso de erro
+        return -1;
     }
     printf("Porta 3001 aberta\n");
-    return 0; // Retorna 0 em caso de sucesso
+    return 0;
 }
 
 int listen_for_connections(int socket_fd) {
-    if (listen(socket_fd, MAX_CLIENTES) == -1) {
+    if (listen(socket_fd, MAX_CLIENTES) != 0) {
         perror("Erro ao ouvir a porta");
         close(socket_fd);
-        return -1; // Retorna -1 em caso de erro
+        return -1;
     }
     printf("Escutando conexões...\n");
-    return 0; // Retorna 0 em caso de sucesso
+    return 0;
 }
 
 void handle_client(int connection_fd, struct sockaddr_in client) {
@@ -48,7 +52,6 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
     inet_ntop(AF_INET, &(client.sin_addr), ip_client, INET_ADDRSTRLEN);
     printf("Novo cliente conectado: %s (%d)\n", ip_client, connection_fd);
 
-    // Atualiza o tempo de último uso do cliente
     for (int i = 0; i < total_clientes; i++) {
         if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
             clientes_conectados[i].ultimo_uso = time(NULL);
@@ -56,11 +59,10 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
         }
     }
 
-    while ((bytes_received = recv(connection_fd, input_buffer, BUFFER_SIZE - 1, 0)) > 0) {
+    while (servidor_ativo && (bytes_received = recv(connection_fd, input_buffer, BUFFER_SIZE - 1, 0)) > 0) {
         input_buffer[bytes_received] = '\0';
         printf("Servidor recebeu do cliente %s (%d): %s\n", ip_client, connection_fd, input_buffer);
 
-        // Atualiza o tempo de último uso do cliente novamente
         for (int i = 0; i < total_clientes; i++) {
             if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
                 clientes_conectados[i].ultimo_uso = time(NULL);
@@ -159,32 +161,28 @@ void handle_whisper(int connection_fd, char* nome_destinatario, char* mensagem) 
     }
 }
 
-
-// Função para tratar a conexão de um cliente
 void* handle_client_thread(void* arg) {
     ClientData* data = (ClientData*)arg;
     handle_client(data->connection_fd, data->client);
-    close(data->connection_fd);  // Fecha a conexão do cliente
-    free(data);  // Libera a memória alocada para os dados do cliente
+    free(data);
     return NULL;
 }
 
-// Função para aceitar conexões
 void* thread_aceita_conexoes(void* arg) {
     int socket_fd = *(int*)arg;
     struct sockaddr_in client;
     socklen_t client_size = sizeof(client);
     int connection_fd;
 
-    while (1) {
-        // Aceita a conexão
+    while (servidor_ativo) { // Usar a flag para controlar o loop
         connection_fd = accept(socket_fd, (struct sockaddr*)&client, &client_size);
         if (connection_fd < 0) {
-            perror("Erro ao aceitar conexão");
-            continue;
+            if (servidor_ativo) {
+                perror("Erro ao aceitar conexão");
+            }
+            break; // Encerra o loop se o servidor estiver encerrando
         }
 
-        // Aloca memória para armazenar os dados do cliente
         ClientData* client_data = (ClientData*)malloc(sizeof(ClientData));
         if (client_data == NULL) {
             perror("Erro ao alocar memória para cliente");
@@ -192,25 +190,20 @@ void* thread_aceita_conexoes(void* arg) {
             continue;
         }
 
-        // Preenche os dados do cliente
         client_data->connection_fd = connection_fd;
         client_data->client = client;
 
-        // Cria uma thread para tratar o cliente
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, handle_client_thread, (void*)client_data) != 0) {
             perror("Erro ao criar thread para cliente");
-            free(client_data);  // Libera a memória caso a thread não seja criada
+            free(client_data);
             close(connection_fd);
         } else {
-            // Detach a thread para que ela seja limpa automaticamente após terminar
             pthread_detach(thread_id);
         }
     }
-
     return NULL;
 }
-
 
 char* get_comando(const char* mensagem) {
     if (!mensagem || mensagem[0] != '<') return NULL;
@@ -252,17 +245,13 @@ const char* get_nome_por_fd(int connection_fd) {
     return "Desconhecido";
 }
 
-
-
 void desconectar_cliente(Cliente *cliente) {
-    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+    pthread_mutex_lock(&mutex_clientes);
 
     char mensagem[100];
     snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectado", cliente->nome);
-    enviar_message(cliente->connection_data.connection_fd
-        , clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+    enviar_message(cliente->connection_data.connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
 
-    // Fechar a conexão do cliente
     close(cliente->connection_data.connection_fd);
     printf("Conexão com cliente %s fechada.\n", cliente->nome);
 
@@ -276,16 +265,12 @@ void desconectar_cliente(Cliente *cliente) {
         }
     }
 
-    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
+    pthread_mutex_unlock(&mutex_clientes);
 }
 
-
-
-// Função para verificar timeout de inatividade
 void verificar_inatividade() {
     time_t tempo_atual = time(NULL);
-    
-    for (int i = total_clientes -1; i >= 0; i--) {
+    for (int i = total_clientes - 1; i >= 0; i--) {
         if (difftime(tempo_atual, clientes_conectados[i].ultimo_uso) > INATIVIDADE_TIMEOUT) {
             printf("Cliente %s inativo por mais de %d segundos. Desconectando...\n", clientes_conectados[i].nome, INATIVIDADE_TIMEOUT);
             desconectar_cliente(&clientes_conectados[i]);
@@ -294,10 +279,11 @@ void verificar_inatividade() {
 }
 
 void* monitorar_inatividade(void* arg) {
-    while (1) {
+    while (servidor_ativo) {
         sleep(5);
         verificar_inatividade();
     }
+    return NULL;
 }
 
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd) {
@@ -318,15 +304,11 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
 
     pthread_mutex_unlock(&mutex_clientes);
 
-    // Envia a mensagem de boas-vindas para todos os clientes, incluindo o recém-conectado
     char mensagem_boas_vindas[200];
     snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
     enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
-
     return "ACK";
 }
-
-
 
 void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
     pthread_mutex_lock(&mutex_clientes);
@@ -338,7 +320,6 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem para o cliente");
             }
-             // Atualiza o tempo de último uso do cliente
             clientes[i].ultimo_uso = time(NULL);
         }
     }
@@ -347,10 +328,11 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
 }
 
 void close_server_socket(int socket_fd) {
-    if (socket_fd > 0) { 
+    if (socket_fd > 0) {
         if (close(socket_fd) != 0) {
             perror("Erro ao fechar o socket");
         }
         printf("Socket %d fechado.\n", socket_fd);
     }
+    socket_fd = -1;
 }

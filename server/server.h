@@ -17,8 +17,6 @@
 #define MAX_CLIENTES 10
 #define INATIVIDADE_TIMEOUT 60
 
-extern pthread_mutex_t mutex_clientes;
-
 // Estrutura para armazenar dados de conexão
 typedef struct {
     int connection_fd;
@@ -35,8 +33,13 @@ typedef struct {
 
 
 // Lista de clientes conectados
-extern Cliente clientes_conectados[MAX_CLIENTES]; 
-extern int total_clientes; 
+extern pthread_mutex_t mutex_clientes;
+extern Cliente clientes_conectados[MAX_CLIENTES];
+extern int total_clientes;
+extern int socket_fd;
+extern pthread_t thread_conexao;
+extern pthread_t thread_inatividade;
+extern volatile sig_atomic_t servidor_ativo;
 
 // Funções principais do servidor
 //cria e configura o socket do servidor
