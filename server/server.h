@@ -102,7 +102,7 @@ void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client
 void handle_nome(int connection_fd, char* nome, const char* ip_client);
 
 //Para tratamento do comando SAIR
-void handle_sair(int connection_fd, char* nome_cliente);
+void handle_sair(int connection_fd); 
 
 //Para tratamento do comando ALL
 void handle_all(int connection_fd, char* mensagem);

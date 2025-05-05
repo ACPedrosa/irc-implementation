@@ -89,7 +89,7 @@ void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client
     if (strcmp(comando, "NOME") == 0) {
         handle_nome(connection_fd, mensagem_texto, ip_client);
     } else if (strcmp(comando, "SAIR") == 0) {
-        handle_sair(connection_fd, mensagem_texto);
+        handle_sair(connection_fd);
     } else if (strcmp(comando, "ALL") == 0) {
         handle_all(connection_fd, mensagem_texto);
     } else if (strcmp(comando, "WHO") == 0) {
@@ -109,10 +109,15 @@ void handle_nome(int connection_fd, char* nome, const char* ip_client) {
     send(connection_fd, resposta, strlen(resposta), 0);
 }
 
-void handle_sair(int connection_fd, char* nome_cliente) {
+void handle_sair(int connection_fd) {
+    // Busca o cliente pelo ID da conexão
     Cliente cliente;
-    strcpy(cliente.nome, nome_cliente);
-    cliente.connection_data.connection_fd = connection_fd;
+    for (int i = 0; i < total_clientes; i++) {
+        if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
+            cliente = clientes_conectados[i];
+            break;
+        }
+    }
     desconectar_cliente(&cliente);
 }
 
@@ -248,15 +253,23 @@ const char* get_nome_por_fd(int connection_fd) {
 void desconectar_cliente(Cliente *cliente) {
     pthread_mutex_lock(&mutex_clientes);
 
-    // Envia mensagem de saída para os outros clientes, se houverem outros clientes conectados.
+    char nome_cliente[50];
+    strcpy(nome_cliente, cliente->nome); // Copia o nome do cliente
+
+    close(cliente->connection_data.connection_fd); // Fecha o socket primeiro
+    printf("Conexão com cliente %s fechada.\n", nome_cliente);
+
+     // Envia mensagem de saída para os outros clientes, se houverem outros clientes conectados.
     if (total_clientes > 0) {
         char mensagem[100];
-        snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectou", cliente->nome);
-        enviar_message(cliente->connection_data.connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+        snprintf(mensagem, sizeof(mensagem), "<SAIU> Cliente %s desconectou", nome_cliente);
+        // Itera sobre todos os clientes conectados, enviando a mensagem para os outros, e não para o que está desconectando.
+        for (int i = 0; i < total_clientes; i++) {
+            if (clientes_conectados[i].connection_data.connection_fd != cliente->connection_data.connection_fd) {
+                 send(clientes_conectados[i].connection_data.connection_fd, mensagem, strlen(mensagem), 0);
+            }
+        }
     }
-
-    close(cliente->connection_data.connection_fd);
-    printf("Conexão com cliente %s fechada.\n", cliente->nome);
 
     for (int i = 0; i < total_clientes; i++) {
         if (clientes_conectados[i].connection_data.connection_fd == cliente->connection_data.connection_fd) {
@@ -314,7 +327,7 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     pthread_mutex_unlock(&mutex_clientes);
 
     char mensagem_boas_vindas[200];
-    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
+    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "Cliente %s conectado", nome);
     enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
     return "ACK";
 }
