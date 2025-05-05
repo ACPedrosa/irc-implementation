@@ -310,13 +310,17 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
     return "ACK";
 }
 
-void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
+void enviar_message(int sender_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
     pthread_mutex_lock(&mutex_clientes);
 
     for (int i = 0; i < max_clients; i++) {
         int client_fd = clientes[i].connection_data.connection_fd;
-        if (client_fd != 0 && client_fd != connection_fd) {
-            ssize_t bytes_sent = send(client_fd, message, message_size, 0);
+        if (client_fd != 0 && client_fd != sender_fd) { // Alterado para sender_fd
+            // Encontra o nome do remetente
+            const char* sender_name = get_nome_por_fd(sender_fd);
+            char formatted_message[BUFFER_SIZE];
+            snprintf(formatted_message, sizeof(formatted_message), "%s: %s", sender_name, message); // Formata a mensagem
+            ssize_t bytes_sent = send(client_fd, formatted_message, strlen(formatted_message), 0);
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem para o cliente");
             }
