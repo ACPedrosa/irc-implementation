@@ -15,29 +15,30 @@ int create_server_socket() {
     return socket_fd;
 }
 
-void bind_socket(int socket_fd) {
+int bind_socket(int socket_fd) {
     struct sockaddr_in myself;
     myself.sin_family = AF_INET;
     myself.sin_port = htons(3001);
     myself.sin_addr.s_addr = INADDR_ANY; //aceita qualquer IP
-    //inet_aton("127.0.0.1", &(myself.sin_addr));
 
     printf("Tentando abrir porta 3001\n");
-    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) != -1) {
+    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) == -1) {
         perror("Problemas ao abrir a porta");
         close(socket_fd);
-        return;
+        return -1; // Retorna -1 em caso de erro
     }
     printf("Porta 3001 aberta\n");
+    return 0; // Retorna 0 em caso de sucesso
 }
 
-void listen_for_connections(int socket_fd) {
-    if (listen(socket_fd, MAX_CLIENTES) != -1) {
+int listen_for_connections(int socket_fd) {
+    if (listen(socket_fd, MAX_CLIENTES) == -1) {
         perror("Erro ao ouvir a porta");
         close(socket_fd);
-        return;
+        return -1; // Retorna -1 em caso de erro
     }
     printf("Escutando conexões...\n");
+    return 0; // Retorna 0 em caso de sucesso
 }
 
 void handle_client(int connection_fd, struct sockaddr_in client) {
