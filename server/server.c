@@ -285,32 +285,35 @@ void* monitorar_inatividade(void* arg) {
 }
 
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd) {
-    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+    pthread_mutex_lock(&mutex_clientes);
 
-    // Verifica se já existe um cliente com o mesmo nome ou IP
     for (int i = 0; i < total_clientes; i++) {
-        if (strcmp(clientes_conectados[i].nome, nome) == 0) { //|| strcmp(clientes_conectados[i].ip, ip) == 0
-            pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex antes de retornar
-            return "NACK"; 
+        if (strcmp(clientes_conectados[i].nome, nome) == 0) {
+            pthread_mutex_unlock(&mutex_clientes);
+            return "NACK";
         }
     }
 
-    // Adiciona o cliente à lista de clientes conectados
     strncpy(clientes_conectados[total_clientes].nome, nome, sizeof(clientes_conectados[total_clientes].nome));
     strncpy(clientes_conectados[total_clientes].ip, ip, INET_ADDRSTRLEN);
-    clientes_conectados[total_clientes].ultimo_uso = time(NULL); // Registra o último uso
-    clientes_conectados[total_clientes].connection_data.connection_fd = connection_fd; // Registra a conexão
-    total_clientes++; // Incrementa o contador
+    clientes_conectados[total_clientes].ultimo_uso = time(NULL);
+    clientes_conectados[total_clientes].connection_data.connection_fd = connection_fd;
+    total_clientes++;
 
-    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
+    pthread_mutex_unlock(&mutex_clientes);
 
-    return "ACK"; // Nome aceito
+    // Envia a mensagem de boas-vindas para todos os clientes, incluindo o recém-conectado
+    char mensagem_boas_vindas[200];
+    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
+    enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
+
+    return "ACK";
 }
 
 
 
 void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char *message, ssize_t message_size) {
-    pthread_mutex_lock(&mutex_clientes);  // Bloqueia o mutex antes de modificar os dados
+    pthread_mutex_lock(&mutex_clientes);
 
     for (int i = 0; i < max_clients; i++) {
         int client_fd = clientes[i].connection_data.connection_fd;
@@ -319,10 +322,12 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
             if (bytes_sent < 0) {
                 perror("Erro ao enviar mensagem para o cliente");
             }
+             // Atualiza o tempo de último uso do cliente
+            clientes[i].ultimo_uso = time(NULL);
         }
     }
 
-    pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
+    pthread_mutex_unlock(&mutex_clientes);
 }
 
 void close_server_socket(int socket_fd) {
