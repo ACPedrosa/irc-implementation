@@ -63,16 +63,20 @@ int create_connection(const char *server_ip, int port) {
     if (bytes_received > 0) {
         buffer[bytes_received] = '\0';
         if (strcmp(buffer, "NACK") == 0) {
-            printf("NACK\n");
-            //close(socket_fd);
-            exit(1);
+            printf("Nome já em uso. Por favor, escolha outro nome.\n");
+            return -1; // Retorna -1 para indicar falha na conexão
         } else {
-            printf("ACK\n");
+            printf("Nome registrado com sucesso.\n");
         }
+    } else {
+        perror("Erro ao receber ACK/NACK do servidor");
+        close(socket_fd);
+        return -1;
     }
-   
+
     return socket_fd;
 }
+
 
 void communicate_with_server(int socket_fd) {
     ssize_t bytes_sent;

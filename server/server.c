@@ -308,12 +308,14 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
 
     if (total_clientes >= MAX_CLIENTES) {
         pthread_mutex_unlock(&mutex_clientes);
-        return "NACK"; // Servidor cheio
+        send(connection_fd, "NACK", strlen("NACK"), 0); // Envia NACK
+        return "NACK";
     }
 
     for (int i = 0; i < total_clientes; i++) {
         if (strcmp(clientes_conectados[i].nome, nome) == 0) {
             pthread_mutex_unlock(&mutex_clientes);
+            send(connection_fd, "NACK", strlen("NACK"), 0); // Envia NACK
             return "NACK";
         }
     }
@@ -326,8 +328,9 @@ char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *i
 
     pthread_mutex_unlock(&mutex_clientes);
 
+    send(connection_fd, "ACK", strlen("ACK"), 0);
     char mensagem_boas_vindas[200];
-    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "Cliente %s conectado", nome);
+    snprintf(mensagem_boas_vindas, sizeof(mensagem_boas_vindas), "<ENTROU> Cliente %s entrou no chat", nome);
     enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem_boas_vindas, strlen(mensagem_boas_vindas));
     return "ACK";
 }
