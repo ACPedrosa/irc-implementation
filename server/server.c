@@ -1,5 +1,6 @@
 #include "server.h"
 
+pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER;
 Cliente clientes_conectados[MAX_CLIENTES];
 int total_clientes = 0;
 
@@ -249,10 +250,8 @@ void desconectar_cliente(Cliente *cliente) {
     close(cliente->connection_data.connection_fd);
     printf("Conexão com cliente %s fechada.\n", cliente->nome);
 
-    // Remover o cliente da lista de clientes conectados
     for (int i = 0; i < total_clientes; i++) {
         if (clientes_conectados[i].connection_data.connection_fd == cliente->connection_data.connection_fd) {
-            // Movendo todos os outros clientes para "fechar" a posição do cliente desconectado
             for (int j = i; j < total_clientes - 1; j++) {
                 clientes_conectados[j] = clientes_conectados[j + 1];
             }
@@ -326,3 +325,11 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
     pthread_mutex_unlock(&mutex_clientes);  // Libera o mutex após modificar os dados
 }
 
+void close_server_socket(int socket_fd) {
+    if (socket_fd > 0) { 
+        if (close(socket_fd) != 0) {
+            perror("Erro ao fechar o socket");
+        }
+        printf("Socket %d fechado.\n", socket_fd);
+    }
+}
