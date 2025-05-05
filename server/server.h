@@ -87,5 +87,28 @@ void verificar_inatividade();
 //Função executada em uma thread para verificar essa inatividade
 void* monitorar_inatividade(void* arg);
 
+// Funções auxiliares de tratamento de cliente
+//Para processamento de comando e mensagem --> realiza uma ação conforme o recebido
+void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client);
+
+//para tratamento de nome 
+void handle_nome(int connection_fd, char* nome, const char* ip_client);
+
+//Para tratamento do comando SAIR
+void handle_sair(int connection_fd, char* nome_cliente);
+
+//Para tratamento do comando ALL
+void handle_all(int connection_fd, char* mensagem);
+
+//Para tratamento do comando Who
+void handle_who(int connection_fd);
+
+//Para tratamento do comando Help
+void handle_help(int connection_fd);
+
+//Para tratamento do comando whisper
+void handle_whisper(int connection_fd, char* nome_destinatario, char* mensagem);
+
+
 
 #endif
