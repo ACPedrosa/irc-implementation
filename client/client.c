@@ -12,8 +12,7 @@ void *receive_messages(void *arg) {
         bytes_received = recv(socket_fd, buffer, BUFFER_SIZE - 1, 0);
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0';
-            printf("Mensagem do servidor: %s\n", buffer);
-            // TODO: Processar a mensagem (atualizar a interface, etc.)
+            printf(buffer);
         } else if (bytes_received == 0) {
             printf("Servidor desconectado.\n");
             break;
