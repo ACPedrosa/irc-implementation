@@ -9,6 +9,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
+void *receive_messages(void *arg);
 
 int create_connection(const char *server_ip, int port);
 
