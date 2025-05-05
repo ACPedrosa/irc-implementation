@@ -8,16 +8,14 @@ extern volatile sig_atomic_t servidor_ativo;
 
 void encerrar_servidor(int sinal) {
     printf("\nEncerrando o servidor...\n");
-    servidor_ativo = 0; // Define a flag para parar os loops
+    servidor_ativo = 0;
 
-    // Cancela a thread de inatividade primeiro
-    if (thread_inatividade != 0) {
+     if (thread_inatividade != 0) {
         pthread_cancel(thread_inatividade);
         pthread_join(thread_inatividade, NULL);
         thread_inatividade = 0;
     }
 
-    // Cancela a thread de conexão
     if (thread_conexao != 0) {
         pthread_cancel(thread_conexao);
         pthread_join(thread_conexao, NULL);
@@ -25,16 +23,11 @@ void encerrar_servidor(int sinal) {
     }
 
     // Desconecta todos os clientes
-     for (int i = 0; i < total_clientes; i++) {
+    for (int i = 0; i < total_clientes; i++) {
         desconectar_cliente(&clientes_conectados[i]);
     }
-   
 
-    // Fecha o socket do servidor
-    if (socket_fd != -1) {
-        close_server_socket(socket_fd);
-        socket_fd = -1;
-    }
+    close_server_socket(socket_fd);
     exit(0);
 }
 
