@@ -44,6 +44,7 @@ void listen_for_connections(int socket_fd);
 void handle_client(int connection_fd, struct sockaddr_in client);
 void close_server_socket(int socket_fd);
 void* handle_client_thread(void* arg);
+void* thread_aceita_conexoes(void* arg);
 
 //processamento de texto
 char* get_comando(const char* mensagem);
@@ -59,5 +60,6 @@ const char* get_nome_por_fd(int connection_fd);
 void desconectar_cliente(Cliente *cliente);
 void verificar_inatividade();
 void* monitorar_inatividade(void* arg);
+
 
 #endif
