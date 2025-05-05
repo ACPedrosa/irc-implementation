@@ -16,6 +16,8 @@
 #define MAX_CLIENTES 10
 #define INATIVIDADE_TIMEOUT 60
 
+pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER;
+
 // Estrutura para armazenar dados de conexão
 typedef struct {
     int connection_fd;
@@ -51,6 +53,7 @@ void enviar_message(int connection_fd, Cliente *clientes, int max_clients, char 
 
 // Gerenciamento de cliente
 char* validar_nome(Cliente *clientes_conectados, const char *nome, const char *ip, int connection_fd);
+const char* get_nome_por_fd(int connection_fd);
 
 //para desconexão com o client
 void desconectar_cliente(Cliente *cliente);
