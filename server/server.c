@@ -50,84 +50,98 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
         input_buffer[bytes_received] = '\0';
         printf("Servidor recebeu do cliente %s (%d): %s\n", ip_client, connection_fd, input_buffer);
 
-        // Obter comando e mensagem
-        char *comando = get_comando(input_buffer);
-        char *mensagem = get_mensagem(input_buffer);
-
-        if (comando == NULL) {
-            printf("Comando inválido.\n");
-            continue;
-        }
-
-        if (strcmp(comando, "NOME") == 0) {
-            char *resposta = validar_nome(clientes_conectados, mensagem, ip_client, connection_fd);
-            send(connection_fd, resposta, strlen(resposta), 0);
-        } 
-        else if (strcmp(comando, "SAIR") == 0) {
-            Cliente cliente;
-            strcpy(cliente.nome, mensagem); // ou identifique pelo fd
-            cliente.connection_data.connection_fd = connection_fd;
-            desconectar_cliente(&cliente);
-            break;
-        } 
-        else if (strcmp(comando, "ALL") == 0) {
-            enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
-        } 
-        else if (strcmp(comando, "WHO") == 0) {
-            char resposta[BUFFER_SIZE];
-            snprintf(resposta, sizeof(resposta), "Clientes conectados (%d):\n", total_clientes);
-        
-            for (int i = 0; i < total_clientes; i++) {
-                strncat(resposta, "- ", sizeof(resposta) - strlen(resposta) - 1);
-                strncat(resposta, clientes_conectados[i].nome, sizeof(resposta) - strlen(resposta) - 1);
-                strncat(resposta, "\n", sizeof(resposta) - strlen(resposta) - 1);
-            }
-        
-            send(connection_fd, resposta, strlen(resposta), 0);
-        }
-        else if (strcmp(comando, "<HELP>") == 0) {
-            const char* ajuda =
-                "Comandos disponíveis:\n"
-                "<ALL>             - Enviar mensagem a todos\n "
-                "<SAIR>            - Sair do chat\n"
-                "<WHO>             - Ver usuários conectados\n"
-                "<HELP>            - Mostrar esta ajuda\n"
-                "<nome> <mensagem> - Enviar mensagem privada (whisper)\n";
-        
-            send(connection_fd, ajuda, strlen(ajuda), 0);
-        }        
-        else {
-            // Verifica se o comando é o nome de um cliente (whisper)
-            int encontrado = 0;
-            for (int i = 0; i < total_clientes; i++) {
-                if (strcmp(clientes_conectados[i].nome, comando) == 0) {
-                    // Nome encontrado: enviar whisper
-                    const char* nome_remetente = get_nome_por_fd(connection_fd);
-                    char msg_formatada[BUFFER_SIZE];
-                    snprintf(msg_formatada, sizeof(msg_formatada), "[Whisper de %s]: %s", 
-                             nome_remetente, mensagem);
-        
-                    send(clientes_conectados[i].connection_data.connection_fd, msg_formatada, strlen(msg_formatada), 0);
-                    encontrado = 1;
-                    break;
-                }
-            }
-        
-            if (!encontrado) {
-                // Nenhum comando conhecido nem nome de cliente válido
-                char resposta[BUFFER_SIZE];
-                snprintf(resposta, sizeof(resposta), "Comando '%s' não reconhecido. Digite <HELP> para ajuda.\n", comando);
-                send(connection_fd, resposta, strlen(resposta), 0);
-            }
-        }
-
-        free(comando);
-        free(mensagem);
+        processar_mensagem(connection_fd, input_buffer, ip_client);
         memset(input_buffer, 0, BUFFER_SIZE);
     }
-
-    close(connection_fd); // Fecha a conexão com o cliente
+    close(connection_fd);
+    printf("Conexão com cliente %s (%d) fechada.\n", ip_client, connection_fd);
 }
+
+void processar_mensagem(int connection_fd, char* mensagem, const char* ip_client) {
+    char* comando = get_comando(mensagem);
+    char* mensagem_texto = get_mensagem(mensagem);
+
+    if (comando == NULL) {
+        printf("Comando inválido.\n");
+        free(mensagem_texto);
+        return;
+    }
+
+    if (strcmp(comando, "NOME") == 0) {
+        handle_nome(connection_fd, mensagem_texto, ip_client);
+    } else if (strcmp(comando, "SAIR") == 0) {
+        handle_sair(connection_fd, mensagem_texto);
+    } else if (strcmp(comando, "ALL") == 0) {
+        handle_all(connection_fd, mensagem_texto);
+    } else if (strcmp(comando, "WHO") == 0) {
+        handle_who(connection_fd);
+    } else if (strcmp(comando, "<HELP>") == 0) {
+        handle_help(connection_fd);
+    } else {
+        handle_whisper(connection_fd, comando, mensagem_texto);
+    }
+
+    free(comando);
+    free(mensagem_texto);
+}
+
+void handle_nome(int connection_fd, char* nome, const char* ip_client) {
+    char* resposta = validar_nome(clientes_conectados, nome, ip_client, connection_fd);
+    send(connection_fd, resposta, strlen(resposta), 0);
+}
+
+void handle_sair(int connection_fd, char* nome_cliente) {
+    Cliente cliente;
+    strcpy(cliente.nome, nome_cliente);
+    cliente.connection_data.connection_fd = connection_fd;
+    desconectar_cliente(&cliente);
+}
+
+void handle_all(int connection_fd, char* mensagem) {
+    enviar_message(connection_fd, clientes_conectados, total_clientes, mensagem, strlen(mensagem));
+}
+
+void handle_who(int connection_fd) {
+    char resposta[BUFFER_SIZE];
+    snprintf(resposta, sizeof(resposta), "Clientes conectados (%d):\n", total_clientes);
+    for (int i = 0; i < total_clientes; i++) {
+        strncat(resposta, "- ", sizeof(resposta) - strlen(resposta) - 1);
+        strncat(resposta, clientes_conectados[i].nome, sizeof(resposta) - strlen(resposta) - 1);
+        strncat(resposta, "\n", sizeof(resposta) - strlen(resposta) - 1);
+    }
+    send(connection_fd, resposta, strlen(resposta), 0);
+}
+
+void handle_help(int connection_fd) {
+    const char* ajuda =
+    "Comandos disponíveis:\n"
+    "<ALL>             - Enviar mensagem a todos\n "
+    "<SAIR>            - Sair do chat\n"
+    "<WHO>             - Ver usuários conectados\n"
+    "<HELP>            - Mostrar esta ajuda\n"
+    "<nome> <mensagem> - Enviar mensagem privada (whisper)\n";
+    send(connection_fd, ajuda, strlen(ajuda), 0);
+}
+
+void handle_whisper(int connection_fd, char* nome_destinatario, char* mensagem) {
+    int encontrado = 0;
+    for (int i = 0; i < total_clientes; i++) {
+        if (strcmp(clientes_conectados[i].nome, nome_destinatario) == 0) {
+            const char* nome_remetente = get_nome_por_fd(connection_fd);
+            char msg_formatada[BUFFER_SIZE];
+            snprintf(msg_formatada, sizeof(msg_formatada), "[Whisper de %s]: %s", nome_remetente, mensagem);
+            send(clientes_conectados[i].connection_data.connection_fd, msg_formatada, strlen(msg_formatada), 0);
+            encontrado = 1;
+            break;
+        }
+    }
+    if (!encontrado) {
+        char resposta[BUFFER_SIZE];
+        snprintf(resposta, sizeof(resposta), "Comando '%s' não reconhecido. Digite <HELP> para ajuda.\n", nome_destinatario);
+        send(connection_fd, resposta, strlen(resposta), 0);
+    }
+}
+
 
 // Função para tratar a conexão de um cliente
 void* handle_client_thread(void* arg) {
