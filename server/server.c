@@ -23,7 +23,7 @@ void bind_socket(int socket_fd) {
     //inet_aton("127.0.0.1", &(myself.sin_addr));
 
     printf("Tentando abrir porta 3001\n");
-    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) != 0) {
+    if (bind(socket_fd, (struct sockaddr*)&myself, sizeof(myself)) != -1) {
         perror("Problemas ao abrir a porta");
         close(socket_fd);
         return;
@@ -32,7 +32,7 @@ void bind_socket(int socket_fd) {
 }
 
 void listen_for_connections(int socket_fd) {
-    if (listen(socket_fd, MAX_CLIENTES) != 0) {
+    if (listen(socket_fd, MAX_CLIENTES) != -1) {
         perror("Erro ao ouvir a porta");
         close(socket_fd);
         return;
@@ -47,10 +47,25 @@ void handle_client(int connection_fd, struct sockaddr_in client) {
     inet_ntop(AF_INET, &(client.sin_addr), ip_client, INET_ADDRSTRLEN);
     printf("Novo cliente conectado: %s (%d)\n", ip_client, connection_fd);
 
+    // Atualiza o tempo de último uso do cliente
+    for (int i = 0; i < total_clientes; i++) {
+        if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
+            clientes_conectados[i].ultimo_uso = time(NULL);
+            break;
+        }
+    }
+
     while ((bytes_received = recv(connection_fd, input_buffer, BUFFER_SIZE - 1, 0)) > 0) {
         input_buffer[bytes_received] = '\0';
         printf("Servidor recebeu do cliente %s (%d): %s\n", ip_client, connection_fd, input_buffer);
 
+        // Atualiza o tempo de último uso do cliente novamente
+        for (int i = 0; i < total_clientes; i++) {
+            if (clientes_conectados[i].connection_data.connection_fd == connection_fd) {
+                clientes_conectados[i].ultimo_uso = time(NULL);
+                break;
+            }
+        }
         processar_mensagem(connection_fd, input_buffer, ip_client);
         memset(input_buffer, 0, BUFFER_SIZE);
     }
