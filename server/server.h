@@ -16,7 +16,7 @@
 #define MAX_CLIENTES 10
 #define INATIVIDADE_TIMEOUT 60
 
-pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER;
+extern pthread_mutex_t mutex_clientes;
 
 // Estrutura para armazenar dados de conexão
 typedef struct {
